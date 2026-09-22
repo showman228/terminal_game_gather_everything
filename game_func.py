@@ -7,8 +7,6 @@ from constaints import *
 from game_func import *
 # добавить механику дверей и ключей чтобы открывать новые пути добавить режим "как можно быстрее", "успеть за 60 сек"
 
-game_map = GAME_MAP_2
-
 def print_control() -> None:
     print("Управление героем: \n w-вверх \n a - влево \n d - вправо \n s - вниз \n esc - выход")
 
@@ -33,127 +31,124 @@ def random_point_on_game_map(game_map: List[List[int]]) -> List[Tuple[int]]:
 def update_cursor(x, y):
     print(f"\033[{y + 7};{x * 2 + 3}H", end="")
 
-def update_time(time_limit: int):
-    global ELAPSED_TIME
-    ELAPSED_TIME = int(time.time() - START_TIME)
-    
-    # Выводим время под картой (смещение + 9 строк)
-    print(f"\033[{len(game_map) + 9};1H Прошло времени: {ELAPSED_TIME} / {time_limit}", end="", flush=True)
-    print()
+class GameSession:
+    def __init__(self, game_map: List[List[int]]):
+        self.game_map = [row[:] for row in game_map] # копия карты
 
-def update_checkpoint(game_map: List[List[int]], coordinates: List[Tuple[int]]) -> None:
-    p_y, p_x = random.choice(coordinates)
-    game_map[p_y][p_x] = '🦵🏿'
-    update_cursor(p_x, p_y)
-    print("🦵🏿", end='', flush=True)
+        self.x = 1
+        self.y = 1
+        self.count_point = 0
+        self.flag_get_point = False
+        self.flag_end_game = False
+        self.start_time = time.time()
+        self.elapsed_time = 0
+        self.time_limit = TIME_LIMIT
+        self.flag_time_limit = False
 
-def show_point(count_point: int):
-    print(f"\033[{len(game_map) + 10};1H {count_point}/5 Очков собрано", end="", flush=True)
-    print()
+        self.game_map[self.y][self.x] = '@'
+        self.coordinates = random_point_on_game_map(game_map)
 
 
-def on_press_1(key):
-    global X, Y, game_map, COUNT_POINT, FLAG_GET_POINT, FLAG_END_GAME
-    try:
-        old_x = X
-        old_y = Y
+    def on_press(self, key):
+        try:
+            old_x, old_y = self.x, self.y
+            new_x, new_y = self.x, self.y
 
-        new_x = X
-        new_y = Y
+            if key.char == 'w': new_y -= 1
+            elif key.char == 's': new_y += 1
+            elif key.char == 'a': new_x -= 1
+            elif key.char == 'd': new_x += 1
+            else: return 
 
-        if key.char == 'w':
-            new_y -= 1
-        elif key.char == 's':
-            new_y += 1
-        elif key.char == 'a':
-            new_x -= 1
-        elif key.char == 'd':
-            new_x += 1
-        else:
-            return
+            if self.game_map[new_y][new_x] == "#":
+                return
 
-        # Проверяем, можно ли перейти
-        if game_map[new_y][new_x] == '#':
-            return
+            if self.game_map[new_y][new_x] == "!":
+                self.count_point += 1
+                self.flag_get_point = True
 
-        if game_map[new_y][new_x] == "🦵🏿":
-            COUNT_POINT += 1
-            FLAG_GET_POINT = True
+            self.game_map[new_y][new_x] = " "
+            self.x, self.y = new_x, new_y
+            self.game_map[self.y][self.x] = "@"
 
-        # Убираем 🧑🏿‍🦽 со старой позиции
-        game_map[old_y][old_x] = ' '
+            update_cursor(old_x, old_y)
+            print(" ", end="", flush=True)
 
-        # Перемещаем героя
-        X = new_x
-        Y = new_y
+            update_cursor(self.x, self.y)
+            print("@", end="", flush=True)
 
-        # Ставим 🧑🏿‍🦽 на новую позицию
-        game_map[Y][X] = '🧑🏿‍🦽'
+            print(f"\033[{len(self.game_map) + 8};1H", end="", flush=True)
 
-        # Обновляем только старую клетку (используем flush=True для мгновенного вывода)
-        update_cursor(old_x, old_y)
-        print(' ', end='', flush=True)
+        except AttributeError:
+            if key == keyboard.Key.esc:
+                self.flag_end_game = True
+                return False
 
-        # Обновляем только новую клетку
-        update_cursor(X, Y)
-        print('🧑🏿‍🦽', end='', flush=True)
-        
-        # Отводим курсор вниз под карту, чтобы он не мерцал поверх символа '🧑🏿‍🦽'
-        print(f"\033[{len(game_map) + 8};1H", end="", flush=True)
 
-    except AttributeError:
+    def on_release(self, key):
         if key == keyboard.Key.esc:
-            FLAG_END_GAME = True
             return False
+        
+    def update_time(self):
 
-def on_release_1(key):
-    if key == keyboard.Key.esc:
-        return False
+        self.elapsed_time = int(time.time() - self.start_time)
+        
+        # Выводим время под картой (смещение + 10 строк)
+        print(f"\033[{len(self.game_map) + 10};1H Прошло времени: {self.elapsed_time} / {self.time_limit}", end="", flush=True)
+        print()
+
+    def update_checkpoint(self) -> None:
+        p_y, p_x = random.choice(self.coordinates)
+        self.game_map[p_y][p_x] = '!'
+        update_cursor(p_x, p_y)
+        print("!", end='', flush=True)
+
+    def show_point(self):
+        print(f"\033[{len(self.game_map) + 10};1H {self.count_point}/5 Очков собрано", end="", flush=True)
+        print()
 
 
-def game_mode_1():
-    global START_TIME, FLAG_END_GAME, FLAG_GET_POINT, ELAPSED_TIME
+    def run(self):
+        clear_screen()
+        print_control()
+        print_game_map(self.game_map)
 
-    clear_screen()
-    print_control()
-    print_game_map(game_map)
+        self.update_checkpoint()
+        self.start_time = time.time()
 
-    coordinates = random_point_on_game_map(game_map)
-    update_checkpoint(game_map, coordinates)
-    
-    START_TIME = time.time()    
-    
-    listener = keyboard.Listener(on_press=on_press_1, on_release=on_release_1)
-    listener.start()
-    
-    while not FLAG_END_GAME:
-        update_time(TIME_LIMIT)
-        time.sleep(0.1)
-        if FLAG_GET_POINT:
-            update_checkpoint(game_map, coordinates)
-            FLAG_GET_POINT = False
-    
-        if COUNT_POINT == 5:
-            FLAG_END_GAME = True
+        listner = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+        listner.start()
 
-        show_point(COUNT_POINT)
-    
-    listener.stop()
-    
-    # print(f"\033[{len(game_map) + 12};1H", end="", flush=True)
-    
-    if COUNT_POINT == 5 and FLAG_END_GAME:
-        print(f"Поздравляем, вы собрали все поинты за: {ELAPSED_TIME} секунд")
+        while not self.flag_end_game:
+            self.update_time()
+            time.sleep(0.1)
+
+            if self.elapsed_time >= self.time_limit:
+                self.flag_time_limit = True
+                print(f"\nВремя вышло, вы успели собрать {self.count_point} очков.")
+                break
+
+            if self.flag_get_point:
+                self.update_checkpoint()
+                self.flag_get_point = False
+
+            if self.count_point >= 5:
+                self.flag_end_game = True
+                print(f"\nПоздравляем, вы собрали все поинты за: {self.elapsed_time} секунд")
+                break
+
+            self.show_point()
+
+        listner.stop()
+
+
+def start_game(choice: int):
+    if choice == 1:
+        selected_map = GAME_MAP_1
+    elif choice == 2:
+        selected_map = GAME_MAP_2
     else:
-        print("Игра прервана")
-
-def game_mode_2(*args, **kwargs):
-    global START_TIME, FLAG_END_GAME, FLAG_GET_POINT, ELAPSED_TIME, FLAG_TIME_LIMIT 
-
-
-    if ELAPSED_TIME >= TIME_LIMIT:
-        FLAG_END_GAME = True
-        FLAG_TIME_LIMIT = True
-
-    elif FLAG_END_GAME and FLAG_TIME_LIMIT:
-        print(f"Время вышло, вы успели собрать {COUNT_POINT}")
+        selected_map = GAME_MAP_1 # Значение по умолчанию
+        
+    game = GameSession(selected_map)
+    game.run()

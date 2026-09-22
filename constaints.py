@@ -1,13 +1,7 @@
 import time
 
-FLAG_GET_POINT = False
-FLAG_END_GAME = False
 FLAG_TIME_LIMIT = False
-START_TIME = time.time()
 TIME_LIMIT = 90
-COUNT_POINT = 0
-ELAPSED_TIME = 0
-X, Y = 1, 1
 GAME_MAP_1 = [
    ['#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#', '#'],
     ['#', '@', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', ' ', '#', ' ', ' ', ' ', ' ', ' ', ' ', '#'],
