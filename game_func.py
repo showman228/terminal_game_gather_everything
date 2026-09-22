@@ -32,11 +32,11 @@ def update_cursor(x, y):
     print(f"\033[{y + 8};{x * 2 + 3}H", end="")
 
 class GameSession:
-    def __init__(self, game_map: List[List[int]]):
+    def __init__(self, game_map: List[List[int]], start_x: int, start_y: int):
         self.game_map = [row[:] for row in game_map] # копия карты
 
-        self.x = 1
-        self.y = 1
+        self.x = start_x
+        self.y = start_y
         self.count_point = 0
         self.count_keys = 0
         self.flag_get_point = False
@@ -180,6 +180,7 @@ class GameSession:
 
             if self.count_point >= 5:
                 self.flag_end_game = True
+                clear_screen()
                 print(f"\nПоздравляем, вы собрали все поинты за: {self.elapsed_time} секунд")
                 break
 
@@ -189,13 +190,83 @@ class GameSession:
         listner.stop()
 
 
-def start_game(choice: int):
-    if choice == 1:
-        selected_map = GAME_MAP_1
-    elif choice == 2:
-        selected_map = GAME_MAP_2
-    else:
-        selected_map = GAME_MAP_1 # Значение по умолчанию
+def start_game(*args, **kwargs):
+    clear_screen()
+
+    while True:
+        print("Выберите карту для игры: ")
+        print("game_map_1: \n")
+        print(print_game_map(GAME_MAP_1))
+        print("game_map_2: \n")
+        print(print_game_map(GAME_MAP_2))
+        print("game_map_3: \n")
+        print(print_game_map(GAME_MAP_3))
+        print("game_map_4: \n")
+        print(print_game_map(GAME_MAP_4))
+        print("game_map_5: \n")
+        print(print_game_map(GAME_MAP_5))
+
+        try:
+            choice = int(input(">"))
+            if choice == 1:
+                selected_map = GAME_MAP_1
+            elif choice == 2:
+                selected_map = GAME_MAP_2
+            elif choice == 3:
+                selected_map = GAME_MAP_3
+            elif choice == 4:
+                selected_map = GAME_MAP_4
+            elif choice == 5:
+                selected_map == GAME_MAP_5
+            else:
+                continue
+        except Exception:
+            continue
         
-    game = GameSession(selected_map)
-    game.run()
+    
+        sp = []
+        for _ in range(5):
+            free_space = random.choice(free_space_on_game_map(selected_map))
+            sp.append(free_space)
+
+        edit_selected_map = [row[:] for row in selected_map]
+        position_chosen = False
+
+        for val in sp:
+            clear_screen()
+            print("Выберите стартовую позицию: ")
+            px, py = val
+            edit_selected_map[py][px] = "@"
+            print_game_map(edit_selected_map)
+            try:
+                choice = input("(y)es/(n)ext: ")
+                if choice.lower() == "y":
+                    selected_map[py][px] = "@"
+                    position_chosen = True
+                    break
+                elif choice.lower() == "n":
+                    edit_selected_map[py][px] = " " 
+                    continue
+            except Exception:
+                pass
+
+        if position_chosen:
+            game = GameSession(selected_map, px, py)
+            game.run()
+            break
+        else:
+            print("Вы хотите выйти?")
+            try:
+                exit_choice = input("(y)es/(n)o: ")
+                if exit_choice.lower() == "y":
+                    break
+                elif exit_choice.lower() == "n":
+                    pass
+            except Exception:
+                pass
+
+    print("Спасибо за игру!")
+
+
+if __name__ == "__main__":
+    start_game()
