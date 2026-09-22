@@ -8,7 +8,7 @@ from game_func import *
 # добавить механику дверей и ключей чтобы открывать новые пути добавить режим "как можно быстрее", "успеть за 60 сек"
 
 def print_control() -> None:
-    print("Управление героем: \n w-вверх \n a - влево \n d - вправо \n s - вниз \n esc - выход")
+    print("Управление героем: \n w-вверх \n a - влево \n d - вправо \n s - вниз \n e - открыть & \n esc - выход")
 
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -19,17 +19,17 @@ def print_game_map(game_map: List[List[int]]) -> None:
         formatted_row = " ".join(f"{item:>{max_len}}" for item in row)
         print(f"[ {formatted_row} ]")
 
-def random_point_on_game_map(game_map: List[List[int]]) -> List[Tuple[int]]:
+def free_space_on_game_map(game_map: List[List[int]]) -> List[List[int]]:
     free_space = []
     for i in range(1, len(game_map) - 1):
         for j in range(1, len(game_map[i]) - 1):
             if game_map[i][j] != "#":
-                free_space.append((i, j))
+                free_space.append([i, j])
 
     return free_space
 
 def update_cursor(x, y):
-    print(f"\033[{y + 7};{x * 2 + 3}H", end="")
+    print(f"\033[{y + 8};{x * 2 + 3}H", end="")
 
 class GameSession:
     def __init__(self, game_map: List[List[int]]):
@@ -38,6 +38,7 @@ class GameSession:
         self.x = 1
         self.y = 1
         self.count_point = 0
+        self.count_keys = 0
         self.flag_get_point = False
         self.flag_end_game = False
         self.start_time = time.time()
@@ -46,7 +47,7 @@ class GameSession:
         self.flag_time_limit = False
 
         self.game_map[self.y][self.x] = '@'
-        self.coordinates = random_point_on_game_map(game_map)
+        self.coordinates = free_space_on_game_map(game_map)
 
 
     def on_press(self, key):
@@ -58,14 +59,42 @@ class GameSession:
             elif key.char == 's': new_y += 1
             elif key.char == 'a': new_x -= 1
             elif key.char == 'd': new_x += 1
+            elif key.char == 'e':
+                if self.game_map[new_y - 1][new_x] == "&" and self.count_keys > 0:
+                    self.count_keys -= 1
+                    self.game_map[new_y - 1][new_x] = " "
+                    update_cursor(new_x, new_y - 1)
+                    print(" ", end="", flush=True)
+    
+                elif self.game_map[new_y + 1][new_x] == "&" and self.count_keys > 0:
+                    self.count_keys -= 1
+                    self.game_map[new_y + 1][new_x] = " "
+                    update_cursor(new_x, new_y + 1)
+                    print(" ", end="", flush=True)
+    
+                elif self.game_map[new_y][new_x + 1] == "&" and self.count_keys > 0:
+                    self.count_keys -= 1
+                    self.game_map[new_y][new_x + 1] = " "
+                    update_cursor(new_x + 1, new_y)
+                    print(" ", end="", flush=True)
+    
+                elif self.game_map[new_y][new_x - 1] == "&" and self.count_keys > 0:
+                    self.count_keys -= 1
+                    self.game_map[new_y][new_x - 1] = " "
+                    update_cursor(new_x - 1, new_y)
+                    print(" ", end="", flush=True)
+
             else: return 
 
-            if self.game_map[new_y][new_x] == "#":
+            if self.game_map[new_y][new_x] == "#" or self.game_map[new_y][new_x] == "&":
                 return
 
-            if self.game_map[new_y][new_x] == "!":
+            if self.game_map[new_y][new_x] == "*":
                 self.count_point += 1
                 self.flag_get_point = True
+
+            if self.game_map[new_y][new_x] == "?":
+                self.count_keys += 1
 
             self.game_map[new_y][new_x] = " "
             self.x, self.y = new_x, new_y
@@ -94,19 +123,33 @@ class GameSession:
         self.elapsed_time = int(time.time() - self.start_time)
         
         # Выводим время под картой (смещение + 10 строк)
-        print(f"\033[{len(self.game_map) + 10};1H Прошло времени: {self.elapsed_time} / {self.time_limit}", end="", flush=True)
+        print(f"\033[{len(self.game_map) + 9};1H Прошло времени: {self.elapsed_time} / {self.time_limit}", end="", flush=True)
         print()
 
     def update_checkpoint(self) -> None:
         p_y, p_x = random.choice(self.coordinates)
-        self.game_map[p_y][p_x] = '!'
+        self.coordinates.remove([p_y, p_x])
+        self.game_map[p_y][p_x] = '*'
         update_cursor(p_x, p_y)
-        print("!", end='', flush=True)
+        print("*", end='', flush=True)
 
-    def show_point(self):
-        print(f"\033[{len(self.game_map) + 10};1H {self.count_point}/5 Очков собрано", end="", flush=True)
+    def update_key(self) -> None:
+        p_y, p_x = random.choice(self.coordinates)
+        while self.game_map[p_y][p_x] == '*' or self.game_map[p_y][p_x] == "?":
+            self.coordinates.remove([p_y, p_x])
+            p_y, p_x = random.choice(self.coordinates)
+            
+        self.game_map[p_y][p_x] = "?"
+        update_cursor(p_x, p_y)
+        print("?", end="", flush=True)
+    
+    def show_points(self):
+        print(f"\033[{len(self.game_map) + 10};1H {self.count_point}/5 Очков собрано" + " "*1000, end="", flush=True)
         print()
 
+    def show_keys(self):
+        print(f"\033[{len(self.game_map) + 11};1H {self.count_keys}/2 ? собрано", end="", flush=True)
+        print() 
 
     def run(self):
         clear_screen()
@@ -114,6 +157,9 @@ class GameSession:
         print_game_map(self.game_map)
 
         self.update_checkpoint()
+        for _ in range(2):
+            self.update_key()
+
         self.start_time = time.time()
 
         listner = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
@@ -137,7 +183,8 @@ class GameSession:
                 print(f"\nПоздравляем, вы собрали все поинты за: {self.elapsed_time} секунд")
                 break
 
-            self.show_point()
+            self.show_points()
+            self.show_keys()
 
         listner.stop()
 
